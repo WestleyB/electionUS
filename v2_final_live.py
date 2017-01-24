@@ -77,25 +77,28 @@ def get_states():
 
 
 def key_time_dataframe(key_time):
-    try:
-        cursor = db.us.aggregate([
-                    {"$match": {"vote_timestamp": key_time}},
-                    {"$group": {"_id": {"state": "$state",
-                    "vote_result": "$vote_result"}, "total": {"$sum": 1}}},
-                ])
-        pass
-    except pymongo.errors.AutoReconnect:
-        cursor.skip()
-        time.sleep(5)
-    info = (list(cursor))
-    ligne = []
-    df = pd.DataFrame()
-    if len(info) != 0:
-        for i in range(len(info)):
-            ligne = [info[i]['total'], info[i]['_id']['state'],
-                    info[i]['_id']['vote_result']]
-            df = pd.concat([df, pd.DataFrame(ligne).T])
-        df.columns = ['total', 'state', 'vote_result']
+    trump = 1
+    while trump:
+        try:
+            cursor = db.us.aggregate([
+                        {"$match": {"vote_timestamp": key_time}},
+                        {"$group": {"_id": {"state": "$state",
+                        "vote_result": "$vote_result"}, "total": {"$sum": 1}}},
+                    ])
+            info = (list(cursor))
+            ligne = []
+            df = pd.DataFrame()
+            if len(info) != 0:
+                for i in range(len(info)):
+                    ligne = [info[i]['total'], info[i]['_id']['state'],
+                             info[i]['_id']['vote_result']]
+                    df = pd.concat([df, pd.DataFrame(ligne).T])
+                df.columns = ['total', 'state', 'vote_result']
+            trump = 0
+            pass
+        except pymongo.errors.AutoReconnect:
+            cursor = None
+            time.sleep(5)
     return df
 
 
