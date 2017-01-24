@@ -8,9 +8,10 @@ from pymongo import ReadPreference
 import pymongo
 import time
 
-
-client = MongoClient('34.196.21.20', 27017, replicaset='rs0',
-                     ReadPreference="secondaryPreferred", localThresholdMS=35)
+client = MongoClient(['34.196.21.20:27017', '34.197.19.183:27017', '34.193.159.184:27017']
+                     , replicaset='rs0'
+                     , readPreference='secondaryPreferred'
+                     , localThresholdMS=35)
 
 # client = MongoClient("localhost")
 db = client['election']
@@ -75,22 +76,23 @@ def get_states():
 def key_time_dataframe(key_time):
     try:
         cursor = db.us.aggregate([
-                    {"$match": {"vote_timestamp": key_time}},
-                    {"$group": {"_id": {"state": "$state",
-                    "vote_result": "$vote_result"}, "total": {"$sum": 1}}},
-                ])
-        info = (list(cursor))
-        ligne = []
-        df = pd.DataFrame()
-        if len(info) != 0:
-            for i in range(len(info)):
-                ligne = [info[i]['total'], info[i]['_id']['state'],
-                        info[i]['_id']['vote_result']]
-                df = pd.concat([df, pd.DataFrame(ligne).T])
-            df.columns = ['total', 'state', 'vote_result']
+            {"$match": {"vote_timestamp": key_time}},
+            {"$group": {"_id": {"state": "$state",
+                                "vote_result": "$vote_result"}, "total": {"$sum": 1}}},
+        ])
         pass
     except pymongo.errors.AutoReconnect:
+        cursor.skip()
         time.sleep(5)
+    info = (list(cursor))
+    ligne = []
+    df = pd.DataFrame()
+    if len(info) != 0:
+        for i in range(len(info)):
+            ligne = [info[i]['total'], info[i]['_id']['state'],
+                     info[i]['_id']['vote_result']]
+            df = pd.concat([df, pd.DataFrame(ligne).T])
+        df.columns = ['total', 'state', 'vote_result']
     return df
 
 
@@ -113,8 +115,9 @@ def states_result(key_time):
     if not df_state.empty:
         df_state_group = df_state.groupby('state')
         for key, elmt in df_state_group:
-            elmt['pct'] = elmt['total'].apply(lambda x: x/elmt.total.sum())
-            df_resultat = df_resultat.append(elmt[elmt.pct == elmt.pct.max()][['state', 'vote_result', 'total']], ignore_index=True)
+            elmt['pct'] = elmt['total'].apply(lambda x: x / elmt.total.sum())
+            df_resultat = df_resultat.append(elmt[elmt.pct == elmt.pct.max()][['state', 'vote_result', 'total']],
+                                             ignore_index=True)
             df_prop_state = df_prop_state.append(elmt[elmt.state == 'Maine'],
                                                  ignore_index=True)
             df_prop_state = df_prop_state.append(elmt[elmt.state == 'Nebraska'],
@@ -153,16 +156,15 @@ states = get_states()
 states_long = list(states.keys())
 states_short = list(states.values())
 
-
 new_z = list(np.zeros(51) + 0.5)
 trace_map = Choropleth(
-            z=new_z, autocolorscale=False, hoverinfo='text',
-            colorscale=[[0, 'rgb(186,58,51)'], [0.2, 'rgb(186,58,51)'],
-                        [0.4, 'rgb(255,255,255)'], [0.6, 'rgb(255,255,255)'],
-                        [0.8, 'rgb(68,94,150)'], [1, 'rgb(68,94,150)']],
-            locationmode='USA-states', locations=states_short, name='Democrat',
-            showscale=False, showlegend=False, text=states_long, zauto=False,
-            zmax=1, zmin=0, stream=stream_map,)
+    z=new_z, autocolorscale=False, hoverinfo='text',
+    colorscale=[[0, 'rgb(186,58,51)'], [0.2, 'rgb(186,58,51)'],
+                [0.4, 'rgb(255,255,255)'], [0.6, 'rgb(255,255,255)'],
+                [0.8, 'rgb(68,94,150)'], [1, 'rgb(68,94,150)']],
+    locationmode='USA-states', locations=states_short, name='Democrat',
+    showscale=False, showlegend=False, text=states_long, zauto=False,
+    zmax=1, zmin=0, stream=stream_map, )
 
 data = [trace_map]
 
@@ -181,24 +183,22 @@ layout = dict(autosize=False, geo=dict(countrycolor='rgb(102, 102, 102)',
               hovermode='closest', showlegend=False, title='<b>""</b>',
               width=1000, margin=dict(l=0, r=0, b=40, t=20, pad=4),
               font=dict(family="comic sans ms", size=24, color="grey"),
-              rmode='group', bargap=0.5,)
-
+              rmode='group', bargap=0.5, )
 
 fig_map = dict(data=data, layout=layout)
 py.iplot(fig_map, validate=False, filename='map',
          auto_open=False, fileopt='extend')
 
-
 trace_3 = Bar(x=["Trump", "Clinton", "Castle", "Stein", "Johnson", "McMullin"],
               y=[0, 0, 0, 0, 0, 0, 0], xaxis='x1', yaxis='y1',
               marker=dict(color=['rgb(186,58,51)', 'rgb(68,94,150)']),
-              showlegend=False, stream=stream_bar_pop,)
+              showlegend=False, stream=stream_bar_pop, )
 
 trace_4 = Pie(values=[0, 0], labels=["Trump", "Clinton"], text="Voters",
               domain={"x": [0.23, 0.495], "y": [0, 0.70]},
               marker={'colors': ['rgb(186,58,51)', 'rgb(68,94,150)']},
               name="Voters", hoverinfo="label+percent+name", hole=.5,
-              type="pie", textposition="inside", stream=stream_pie_pop,)
+              type="pie", textposition="inside", stream=stream_pie_pop, )
 
 # INDIRECT :
 trace_2 = Pie(values=[0, 0], labels=["Trump", "Clinton"], text="Great Voters",
@@ -206,11 +206,11 @@ trace_2 = Pie(values=[0, 0], labels=["Trump", "Clinton"], text="Great Voters",
               marker={'colors': ['rgb(186,58,51)', 'rgb(68,94,150)']},
               name="Voters", hoverinfo="label+percent+name", hole=.5,
               type="pie", showlegend=True, textposition="inside",
-              stream=stream_pie_elec,)
+              stream=stream_pie_elec, )
 
 trace_1 = Bar(x=["Trump", "Clinton"], y=[0, 0], xaxis='x2', yaxis='y2',
               marker=dict(color=['rgb(186,58,51)', 'rgb(68,94,150)']),
-              showlegend=False, stream=stream_bar_elec,)
+              showlegend=False, stream=stream_bar_elec, )
 
 data9 = [trace_1, trace_2, trace_3, trace_4]
 
@@ -231,21 +231,19 @@ layout9 = Layout(xaxis1=dict(domain=[0.08, 0.23], anchor='y1'),
                              title='Nombre Electeurs',
                              titlefont=dict(family='Arial, sans-serif',
                                             size=20, color='black'),
-                             showticklabels=True,),
+                             showticklabels=True, ),
                  xaxis2=dict(domain=[0.85, 1], anchor='y2'),
                  yaxis2=dict(domain=[0, 1], anchor='x2',
                              title='Nombre Grands Electeurs',
                              titlefont=dict(family='Arial, sans-serif',
                                             size=20, color='black'),
-                             showticklabels=True,),
+                             showticklabels=True, ),
                  margin=dict(l=0, r=0, b=100, t=100, pad=4),
                  showlegend=True, title='<b>Suffrage DIRECT vs INDIRECT</b>',
-                 font={"size": 15},)
-
+                 font={"size": 15}, )
 
 fig9 = Figure(data=data9, layout=layout9)
 py.iplot(fig9, filename='diagramme')
-
 
 s_map = py.Stream(stream_id=token_map)
 s_bar_pop = py.Stream(stream_id=token_bar_pop)
@@ -291,20 +289,20 @@ def lets_stream():
                 count_trump += c
                 c = state_df.loc[state_df["vote_result"] == "Clinton"]["total"].values[0]
                 count_clinton += c
-                #c = state_df.loc[state_df["vote_result"] == "Castle"]["total"].values[0]
+                # c = state_df.loc[state_df["vote_result"] == "Castle"]["total"].values[0]
                 count_castle += c
-                #c = state_df.loc[state_df["vote_result"] == "Stein"]["total"].values[0]
+                # c = state_df.loc[state_df["vote_result"] == "Stein"]["total"].values[0]
                 count_stein += c
-                #c = state_df.loc[state_df["vote_result"] == "Johnson"]["total"].values[0]
+                # c = state_df.loc[state_df["vote_result"] == "Johnson"]["total"].values[0]
                 count_johnson += c
-                #c = state_df.loc[state_df["vote_result"] == "McMullin"]["total"].values[0]
+                # c = state_df.loc[state_df["vote_result"] == "McMullin"]["total"].values[0]
                 count_mcmullin += c
 
-                s_map.write(dict(type="choropleth", z=new_z, zauto=False,))
+                s_map.write(dict(type="choropleth", z=new_z, zauto=False, ))
                 s_bar_pop.write(dict(type="bar",
                                      y=[count_trump, count_clinton,
-                                     count_castle, count_stein,
-                                     count_johnson, count_mcmullin]))
+                                        count_castle, count_stein,
+                                        count_johnson, count_mcmullin]))
                 s_pie_pop.write(dict(type="pie", labels=["Trump", "Clinton"],
                                      values=[count_trump, count_clinton]))
                 s_bar_elec.write(dict(type="bar", y=[nb_electoral_repu,
@@ -312,7 +310,6 @@ def lets_stream():
                 s_pie_elec.write(dict(type="pie", labels=["Trump", "Clinton"],
                                       values=[nb_electoral_repu,
                                               nb_electoral_demo]))
-
 
 
 print("start sleep")
@@ -331,6 +328,5 @@ s_bar_pop.close()
 s_pie_pop.close()
 s_bar_elec.close()
 s_pie_elec.close()
-
 
 tls.embed('streaming-demos', '121')
