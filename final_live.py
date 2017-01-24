@@ -4,10 +4,14 @@ from plotly.graph_objs import Figure, Choropleth, Bar, Pie, Layout
 import numpy as np
 import pandas as pd
 from pymongo import MongoClient
+from pymongo import ReadPreference
+import pymongo
 import time
 
 
-client = MongoClient('34.196.21.20', 27017, replicaset='rs0')
+client = MongoClient('34.196.21.20', 27017, replicaset='rs0',
+                     ReadPreference="secondaryPreferred", localThresholdMS=35)
+
 # client = MongoClient("localhost")
 db = client['election']
 
@@ -69,20 +73,24 @@ def get_states():
 
 
 def key_time_dataframe(key_time):
-    cursor = db.us.aggregate([
-                 {"$match": {"vote_timestamp": key_time}},
-                 {"$group": {"_id": {"state": "$state",
-                "vote_result": "$vote_result"}, "total": {"$sum": 1}}},
-               ])
-    info = (list(cursor))
-    ligne = []
-    df = pd.DataFrame()
-    if len(info) != 0:
-        for i in range(len(info)):
-            ligne = [info[i]['total'], info[i]['_id']['state'],
-                     info[i]['_id']['vote_result']]
-            df = pd.concat([df, pd.DataFrame(ligne).T])
-        df.columns = ['total', 'state', 'vote_result']
+    try:
+        cursor = db.us.aggregate([
+                    {"$match": {"vote_timestamp": key_time}},
+                    {"$group": {"_id": {"state": "$state",
+                    "vote_result": "$vote_result"}, "total": {"$sum": 1}}},
+                ])
+        info = (list(cursor))
+        ligne = []
+        df = pd.DataFrame()
+        if len(info) != 0:
+            for i in range(len(info)):
+                ligne = [info[i]['total'], info[i]['_id']['state'],
+                        info[i]['_id']['vote_result']]
+                df = pd.concat([df, pd.DataFrame(ligne).T])
+            df.columns = ['total', 'state', 'vote_result']
+        pass
+    except pymongo.errors.AutoReconnect:
+        time.sleep(5)
     return df
 
 
@@ -181,7 +189,8 @@ py.iplot(fig_map, validate=False, filename='map',
          auto_open=False, fileopt='extend')
 
 
-trace_3 = Bar(x=["Trump", "Clinton"], y=[0, 0], xaxis='x1', yaxis='y1',
+trace_3 = Bar(x=["Trump", "Clinton", "Castle", "Stein", "Johnson", "McMullin"],
+              y=[0, 0, 0, 0, 0, 0, 0], xaxis='x1', yaxis='y1',
               marker=dict(color=['rgb(186,58,51)', 'rgb(68,94,150)']),
               showlegend=False, stream=stream_bar_pop,)
 
@@ -250,8 +259,12 @@ def lets_stream():
     electorals = query_grands_elec()
     nb_electoral_demo = 0
     nb_electoral_repu = 0
-    count_demo = 0
-    count_repu = 0
+    count_trump = 0
+    count_clinton = 0
+    count_castle = 0
+    count_stein = 0
+    count_johnson = 0
+    count_mcmullin = 0
 
     for el in range(61):
         key_time = '2016-11-08T20:' + ('00' + str(el))[-2:]
@@ -275,26 +288,36 @@ def lets_stream():
 
                 state_df = popular_results.loc[popular_results["state"] == s]
                 c = state_df.loc[state_df["vote_result"] == "Trump"]["total"].values[0]
-                count_repu += c
+                count_trump += c
                 c = state_df.loc[state_df["vote_result"] == "Clinton"]["total"].values[0]
-                count_demo += c
+                count_clinton += c
+                #c = state_df.loc[state_df["vote_result"] == "Castle"]["total"].values[0]
+                count_castle += c
+                #c = state_df.loc[state_df["vote_result"] == "Stein"]["total"].values[0]
+                count_stein += c
+                #c = state_df.loc[state_df["vote_result"] == "Johnson"]["total"].values[0]
+                count_johnson += c
+                #c = state_df.loc[state_df["vote_result"] == "McMullin"]["total"].values[0]
+                count_mcmullin += c
 
                 s_map.write(dict(type="choropleth", z=new_z, zauto=False,))
-                s_bar_pop.write(dict(type="bar", y=[count_repu, count_demo]))
+                s_bar_pop.write(dict(type="bar",
+                                     y=[count_trump, count_clinton,
+                                     count_castle, count_stein,
+                                     count_johnson, count_mcmullin]))
                 s_pie_pop.write(dict(type="pie", labels=["Trump", "Clinton"],
-                                     values=[count_repu, count_demo]))
+                                     values=[count_trump, count_clinton]))
                 s_bar_elec.write(dict(type="bar", y=[nb_electoral_repu,
                                                      nb_electoral_demo]))
                 s_pie_elec.write(dict(type="pie", labels=["Trump", "Clinton"],
                                       values=[nb_electoral_repu,
                                               nb_electoral_demo]))
 
-                time.sleep(2)
 
 
 print("start sleep")
 
-time.sleep(5)
+time.sleep(2)
 print("end sleep and start live")
 
 s_map.open()
