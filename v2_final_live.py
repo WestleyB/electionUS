@@ -96,7 +96,7 @@ def key_time_dataframe(key_time):
                 df.columns = ['total', 'state', 'vote_result']
             trump = 0
             pass
-        except pymongo.errors.AutoReconnect:
+        except (pymongo.errors.AutoReconnect, pymongo.errors.OperationFailure):
             cursor = None
             time.sleep(5)
     return df
