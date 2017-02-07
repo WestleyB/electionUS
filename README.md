@@ -9,12 +9,14 @@ Réalisation d'un tableau de bord de présentation en temps réel des résultats
 </ul>
 
 ## Données
-<ul>
-1 fichier par état. Chaque ligne correspond à 1 suffrage. Lorsque l’information est disponible, les bulletins blancs figurent dans le fichier. Une ligne se compose:
-      
+
+1 fichier par état. Chaque ligne correspond à 1 suffrage. Lorsque l’information est disponible, les bulletins blancs figurent dans le fichier. 
+Une ligne se compose:
+<ul>      
   <li> moment du dépouillement</li>
   <li> état</li>
   <li> nom du candidat</li>
+</ul>
 Les résultats s’échelonnent sur 1 heure entre 20 heure et 21 heure.
 Les fichiers sont disponibles sur Hadoop (Terralab).
-</ul>
+
